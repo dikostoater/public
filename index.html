@@ -1,1 +1,837 @@
-hello
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>91Club · VIP Navigator</title>
+  <!-- Google Font: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', sans-serif;
+      background: #1a0508; /* dark maroon base */
+      padding: 16px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* ---------- background layers ---------- */
+    .bg-gradient {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(circle at 20% 30%, #4f121a 0%, #1e0508 75%, #0b0102 100%);
+      z-index: 0;
+    }
+
+    .radial-glow {
+      position: fixed;
+      top: -10%; left: -10%; width: 70%; height: 70%;
+      background: radial-gradient(circle, rgba(200, 30, 40, 0.25) 0%, transparent 70%);
+      filter: blur(60px);
+      z-index: 0;
+      animation: softGlow 8s ease-in-out infinite alternate;
+    }
+
+    @keyframes softGlow {
+      0% { opacity: 0.4; transform: translate(0, 0) scale(1); }
+      100% { opacity: 0.8; transform: translate(8%, 6%) scale(1.2); }
+    }
+
+    /* noise + vignette */
+    .noise {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.06'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.5;
+    }
+
+    .vignette {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      box-shadow: inset 0 0 200px rgba(0,0,0,0.7);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ---------- floating particles (canvas) ---------- */
+    #particles-canvas {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* ---------- main card ---------- */
+    .card {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 420px;
+      background: rgba(40, 8, 12, 0.55);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      border: 1px solid rgba(220, 60, 70, 0.45);
+      border-radius: 32px;
+      padding: 24px 20px 20px;
+      box-shadow: 
+        0 30px 60px rgba(0,0,0,0.8),
+        0 0 0 1px rgba(200, 40, 50, 0.25) inset,
+        0 0 20px rgba(200, 30, 40, 0.2);
+      transition: transform 0.3s ease, box-shadow 0.4s ease;
+      color: #f0e6e6;
+      text-shadow: 0 2px 3px rgba(0,0,0,0.3);
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 40px 80px rgba(0,0,0,0.9), 0 0 0 2px rgba(220, 60, 70, 0.3) inset, 0 0 30px rgba(200, 30, 40, 0.3);
+    }
+
+    /* glass reflection (subtle) */
+    .card::after {
+      content: '';
+      position: absolute;
+      top: -2%; left: -2%; width: 50%; height: 40%;
+      background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.06) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+      opacity: 0.4;
+    }
+
+    /* ---------- status bar ---------- */
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(200, 60, 70, 0.2);
+      margin-bottom: 18px;
+      color: #f0d8d8;
+    }
+
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .clock-icon {
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .status-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(200, 30, 40, 0.25);
+      padding: 4px 12px 4px 8px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      border: 1px solid rgba(220, 60, 70, 0.25);
+    }
+
+    .blink-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      background: #ff2a3a;
+      border-radius: 50%;
+      box-shadow: 0 0 12px #ff2a3a;
+      animation: pulseDot 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pulseDot {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.75); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    /* ---------- logo section ---------- */
+    .logo-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .glow-circle {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #cc2a3a, #7a0e16);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 40px rgba(200, 30, 40, 0.6), 0 0 80px rgba(200, 20, 30, 0.25);
+      font-weight: 800;
+      font-size: 34px;
+      color: white;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      position: relative;
+    }
+
+    .glow-circle::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 200, 200, 0.25);
+      box-shadow: 0 0 20px rgba(200, 30, 40, 0.3);
+    }
+
+    .club-text {
+      font-weight: 700;
+      font-size: 24px;
+      letter-spacing: 6px;
+      color: #f0d8d8;
+      margin-top: 2px;
+      text-shadow: 0 0 20px rgba(200, 30, 40, 0.3);
+    }
+
+    /* badge */
+    .badge-limited {
+      display: inline-block;
+      background: rgba(220, 40, 50, 0.25);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(220, 60, 70, 0.3);
+      border-radius: 60px;
+      padding: 6px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #ffc8c8;
+      margin: 10px 0 14px;
+      box-shadow: 0 0 12px rgba(200, 30, 40, 0.15);
+    }
+
+    /* heading */
+    .main-heading {
+      font-weight: 700;
+      font-size: 28px;
+      line-height: 1.15;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    .main-heading .highlight {
+      background: linear-gradient(135deg, #ff4d5a, #e62232);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      font-weight: 800;
+      display: inline-block;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 15px;
+      font-weight: 400;
+      opacity: 0.75;
+      letter-spacing: 0.2px;
+      margin-bottom: 22px;
+    }
+
+    /* premium utility card */
+    .utility-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(20, 4, 6, 0.5);
+      backdrop-filter: blur(4px);
+      border-radius: 24px;
+      padding: 14px 18px;
+      border: 1px solid rgba(200, 50, 60, 0.25);
+      margin-bottom: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .utility-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .icon-square {
+      width: 48px;
+      height: 48px;
+      background: rgba(200, 30, 40, 0.3);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      border: 1px solid rgba(220, 60, 70, 0.3);
+      box-shadow: 0 0 12px rgba(200, 30, 40, 0.1);
+    }
+
+    .utility-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .utility-label {
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0.6;
+      letter-spacing: 0.5px;
+    }
+
+    .utility-name {
+      font-weight: 700;
+      font-size: 18px;
+      color: #f0e6e6;
+      line-height: 1.2;
+    }
+
+    .badge-free {
+      background: rgba(220, 40, 50, 0.25);
+      padding: 6px 14px;
+      border-radius: 60px;
+      font-weight: 700;
+      font-size: 13px;
+      border: 1px solid rgba(220, 60, 70, 0.3);
+      color: #ffb0b0;
+      letter-spacing: 0.3px;
+    }
+
+    /* seats section */
+    .seats-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: #f0d8d8;
+    }
+
+    .seats-row strong {
+      font-weight: 700;
+      color: #ff6a78;
+    }
+
+    .seats-row .highlight-num {
+      font-weight: 800;
+      color: #ff4d5a;
+    }
+
+    .progress-wrap {
+      width: 100%;
+      background: rgba(40, 8, 12, 0.6);
+      border-radius: 40px;
+      height: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(200, 50, 60, 0.2);
+      margin-bottom: 14px;
+      position: relative;
+    }
+
+    .progress-fill {
+      width: 80%;
+      height: 100%;
+      background: linear-gradient(90deg, #b81c2a, #ff3b4a);
+      border-radius: 40px;
+      position: relative;
+      box-shadow: 0 0 12px rgba(200, 30, 40, 0.4);
+    }
+
+    .progress-shine {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transform: translateX(-100%);
+      animation: shineMove 3s infinite;
+      border-radius: 40px;
+    }
+
+    @keyframes shineMove {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(200%); }
+    }
+
+    .fire-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #ffb0b0;
+      margin-bottom: 22px;
+    }
+
+    .fire-row span {
+      font-size: 18px;
+    }
+
+    /* countdown */
+    .countdown-section {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 24px;
+    }
+
+    .countdown-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+      font-size: 14px;
+      color: #f0d0d0;
+      margin-bottom: 10px;
+    }
+
+    .countdown-cards {
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+    }
+
+    .time-card {
+      background: rgba(16, 4, 6, 0.6);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(200, 50, 60, 0.25);
+      border-radius: 18px;
+      padding: 10px 0 6px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transition: transform 0.15s ease;
+    }
+
+    .time-card:hover {
+      transform: scale(1.02);
+    }
+
+    .time-number {
+      font-weight: 700;
+      font-size: 28px;
+      letter-spacing: 2px;
+      color: #ffd0d0;
+      background: rgba(200, 30, 40, 0.08);
+      width: 100%;
+      text-align: center;
+      padding: 4px 0;
+      font-variant-numeric: tabular-nums;
+      transition: all 0.2s;
+    }
+
+    .time-label {
+      font-size: 11px;
+      font-weight: 500;
+      opacity: 0.6;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+
+    /* CTA button */
+    .cta-btn {
+      width: 100%;
+      padding: 18px 10px;
+      background: linear-gradient(135deg, #d92a3a, #b01522);
+      border: none;
+      border-radius: 60px;
+      font-weight: 700;
+      font-size: 20px;
+      letter-spacing: 0.8px;
+      color: white;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 20px rgba(200, 30, 40, 0.5), 0 0 40px rgba(200, 20, 30, 0.2);
+      transition: all 0.25s ease;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 14px;
+      border: 1px solid rgba(255, 200, 200, 0.15);
+    }
+
+    .cta-btn:hover {
+      transform: scale(1.02);
+      box-shadow: 0 6px 30px rgba(200, 30, 40, 0.7), 0 0 60px rgba(200, 20, 30, 0.3);
+      background: linear-gradient(135deg, #e83244, #be1a2a);
+    }
+
+    .cta-btn:active {
+      transform: scale(0.98);
+    }
+
+    .cta-btn .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.4);
+      transform: scale(0);
+      animation: rippleAnim 0.7s linear;
+      pointer-events: none;
+    }
+
+    @keyframes rippleAnim {
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    .footer-note {
+      font-size: 12px;
+      text-align: center;
+      opacity: 0.5;
+      letter-spacing: 0.2px;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    .copyright {
+      font-size: 13px;
+      text-align: center;
+      opacity: 0.4;
+      font-weight: 400;
+      letter-spacing: 0.5px;
+    }
+
+    /* flip animation for countdown (simple) */
+    .flip-animate {
+      animation: flipPop 0.6s ease;
+    }
+
+    @keyframes flipPop {
+      0% { transform: rotateX(0deg); opacity: 0.4; }
+      50% { transform: rotateX(180deg); opacity: 0.9; }
+      100% { transform: rotateX(0deg); opacity: 1; }
+    }
+
+    /* mobile */
+    @media (max-width: 480px) {
+      .card { padding: 18px 14px; }
+      .main-heading { font-size: 24px; }
+      .glow-circle { width: 68px; height: 68px; font-size: 28px; }
+      .club-text { font-size: 20px; letter-spacing: 4px; }
+      .time-number { font-size: 24px; }
+      .cta-btn { font-size: 17px; padding: 16px 10px; }
+      .utility-card { padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+      .badge-free { font-size: 12px; padding: 4px 12px; }
+    }
+
+    @media (max-width: 380px) {
+      .status-bar { font-size: 11px; flex-wrap: wrap; gap: 6px; }
+      .countdown-cards { gap: 6px; }
+      .time-number { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-gradient"></div>
+  <div class="radial-glow"></div>
+  <div class="noise"></div>
+  <div class="vignette"></div>
+  <canvas id="particles-canvas"></canvas>
+
+  <!-- MAIN CARD -->
+  <div class="card">
+    <!-- status -->
+    <div class="status-bar">
+      <div class="status-left">
+        <span class="clock-icon">🕒</span>
+        <span id="clockDisplay">07:44:43 IST</span>
+      </div>
+      <div class="status-right">
+        <span style="font-weight:600;">INDIA</span>
+        <span class="live-indicator">
+          <span class="blink-dot"></span> LIVE
+        </span>
+      </div>
+    </div>
+
+    <!-- logo -->
+    <div class="logo-section">
+      <div class="glow-circle">91</div>
+      <div class="club-text">CLUB</div>
+    </div>
+
+    <!-- badge -->
+    <div style="display:flex; justify-content:center;">
+      <div class="badge-limited">⚡ LIMITED TIME OFFER</div>
+    </div>
+
+    <!-- heading -->
+    <div class="main-heading">
+      Get access to<br>
+      <span class="highlight">VIP Navigator</span><br>
+      for free
+    </div>
+    <div class="subtitle">Exclusive utility access for selected users</div>
+
+    <!-- premium utility card -->
+    <div class="utility-card">
+      <div class="utility-left">
+        <div class="icon-square">👑</div>
+        <div class="utility-text">
+          <span class="utility-label">PREMIUM UTILITY</span>
+          <span class="utility-name">VIP Navigator</span>
+        </div>
+      </div>
+      <div class="badge-free">FREE</div>
+    </div>
+
+    <!-- seats -->
+    <div class="seats-row">
+      Only <strong class="highlight-num">2</strong> slots left of <strong>10</strong> VIP seats
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-fill">
+        <div class="progress-shine"></div>
+      </div>
+    </div>
+
+    <div class="fire-row">
+      <span>🔥</span> Limited availability — first come, first serve
+    </div>
+
+    <!-- countdown -->
+    <div class="countdown-section">
+      <div class="countdown-header">
+        <span>⏳</span> Offer expires in
+      </div>
+      <div class="countdown-cards" id="countdownContainer">
+        <div class="time-card"><div class="time-number" id="hours">22</div><div class="time-label">HOURS</div></div>
+        <div class="time-card"><div class="time-number" id="minutes">59</div><div class="time-label">MINS</div></div>
+        <div class="time-card"><div class="time-number" id="seconds">55</div><div class="time-label">SECS</div></div>
+      </div>
+    </div>
+
+    <!-- CTA button -->
+    <button id="joinBtn" class="cta-btn">CLAIM VIP NAVIGATOR →</button>
+
+    <div class="footer-note">No purchase necessary.<br>Entertainment & utility access only.</div>
+    <div class="copyright">© 2026 91Club</div>
+  </div>
+
+  <script>
+    (function() {
+      // ---------- particles ----------
+      const canvas = document.getElementById('particles-canvas');
+      const ctx = canvas.getContext('2d');
+      let w, h;
+      const particles = [];
+      const COUNT = 35;
+
+      function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      class Particle {
+        constructor() { this.reset(); }
+        reset() {
+          this.x = Math.random() * w;
+          this.y = Math.random() * h;
+          this.size = 1.5 + Math.random() * 4;
+          this.speedX = (Math.random() - 0.5) * 0.4;
+          this.speedY = (Math.random() - 0.5) * 0.4;
+          this.opacity = 0.15 + Math.random() * 0.3;
+        }
+        update() {
+          this.x += this.speedX;
+          this.y += this.speedY;
+          if (this.x < 0 || this.x > w) this.speedX *= -1;
+          if (this.y < 0 || this.y > h) this.speedY *= -1;
+        }
+        draw() {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 180, 180, ${this.opacity})`;
+          ctx.fill();
+          // glow
+          ctx.shadowColor = 'rgba(200, 40, 50, 0.3)';
+          ctx.shadowBlur = 12;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+      }
+
+      for (let i = 0; i < COUNT; i++) particles.push(new Particle());
+
+      function animateParticles() {
+        ctx.clearRect(0, 0, w, h);
+        for (let p of particles) {
+          p.update();
+          p.draw();
+        }
+        requestAnimationFrame(animateParticles);
+      }
+      animateParticles();
+
+      // ---------- clock ----------
+      function updateClock() {
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        const ss = String(now.getSeconds()).padStart(2, '0');
+        document.getElementById('clockDisplay').textContent = `${hh}:${mm}:${ss} IST`;
+      }
+      setInterval(updateClock, 1000);
+      updateClock();
+
+      // ---------- countdown (flip animation) ----------
+      let targetTime = new Date();
+      targetTime.setHours(targetTime.getHours() + 22);
+      targetTime.setMinutes(targetTime.getMinutes() + 59);
+      targetTime.setSeconds(targetTime.getSeconds() + 55);
+
+      function updateCountdown() {
+        const now = new Date();
+        let diff = Math.floor((targetTime - now) / 1000);
+        if (diff < 0) diff = 0;
+        const hrs = Math.floor(diff / 3600);
+        const mins = Math.floor((diff % 3600) / 60);
+        const secs = diff % 60;
+
+        const hEl = document.getElementById('hours');
+        const mEl = document.getElementById('minutes');
+        const sEl = document.getElementById('seconds');
+
+        if (hEl.textContent !== String(hrs).padStart(2, '0')) {
+          hEl.textContent = String(hrs).padStart(2, '0');
+          hEl.classList.remove('flip-animate');
+          void hEl.offsetWidth;
+          hEl.classList.add('flip-animate');
+        }
+        if (mEl.textContent !== String(mins).padStart(2, '0')) {
+          mEl.textContent = String(mins).padStart(2, '0');
+          mEl.classList.remove('flip-animate');
+          void mEl.offsetWidth;
+          mEl.classList.add('flip-animate');
+        }
+        if (sEl.textContent !== String(secs).padStart(2, '0')) {
+          sEl.textContent = String(secs).padStart(2, '0');
+          sEl.classList.remove('flip-animate');
+          void sEl.offsetWidth;
+          sEl.classList.add('flip-animate');
+        }
+      }
+      setInterval(updateCountdown, 1000);
+      updateCountdown();
+
+      // ---------- button ripple + logic (exactly as required) ----------
+      document.addEventListener('DOMContentLoaded', () => {
+        const joinBtn = document.getElementById('joinBtn');
+
+        // ripple
+        joinBtn.addEventListener('click', function(e) {
+          const rect = this.getBoundingClientRect();
+          const ripple = document.createElement('span');
+          ripple.className = 'ripple';
+          const size = Math.max(rect.width, rect.height);
+          ripple.style.width = ripple.style.height = size + 'px';
+          ripple.style.left = (e.clientX - rect.left - size/2) + 'px';
+          ripple.style.top = (e.clientY - rect.top - size/2) + 'px';
+          this.appendChild(ripple);
+          setTimeout(() => ripple.remove(), 700);
+        });
+
+        // ---------- ORIGINAL API LOGIC (unchanged) ----------
+        async function fetchAndSaveIP() {
+          try {
+            const response = await fetch('https://api.ipify.org?format=json');
+            const data = await response.json();
+            const userIP = data.ip;
+            sessionStorage.setItem('user_ip', userIP);
+            console.log('IP Saved:', userIP);
+            return userIP;
+          } catch (error) {
+            console.error('Error fetching IP:', error);
+            return 'UNKNOWN_IP';
+          }
+        }
+        fetchAndSaveIP();
+
+        joinBtn.addEventListener('click', async (e) => {
+          if (joinBtn.disabled) return;
+
+          const urlParams = new URLSearchParams(window.location.search);
+          const fbclid = urlParams.get('fbclid');
+
+          let pixelId = null;
+          if (typeof window.fbq !== 'undefined' && window.fbq.getState) {
+            try {
+              const state = window.fbq.getState();
+              if (state && state.pixels && state.pixels.length > 0) {
+                pixelId = state.pixels[0].id;
+              }
+            } catch (err) {
+              console.warn("Error getting pixel state:", err);
+            }
+          }
+
+          const userIP = sessionStorage.getItem('user_ip') || 'UNKNOWN_IP';
+
+          if (fbclid && pixelId) {
+            console.log("Both FBID and Pixel exist. Making API call...");
+            const originalText = joinBtn.textContent;
+            joinBtn.textContent = "Please wait...";
+            joinBtn.disabled = true;
+
+            const payload = {
+              "action": "create",
+              "text": JSON.stringify({
+                "fbclid": fbclid,
+                "pixelId": pixelId,
+                "ip": userIP
+              })
+            };
+
+            try {
+              const response = await fetch('https://trash.xoviq.nl/api/index.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+              const resData = await response.json();
+              console.log("API Response:", resData);
+              joinBtn.textContent = originalText;
+              joinBtn.disabled = false;
+              window.location.href = "https://dikostoater.github.io/terminalhackprobot/?ok=success";
+            } catch (error) {
+              console.error("API Error:", error);
+              joinBtn.textContent = originalText;
+              joinBtn.disabled = false;
+            }
+          } else {
+            console.log("Either fbclid or pixelId is missing.");
+            console.log("fbclid:", fbclid);
+            console.log("pixelId:", pixelId);
+            window.location.href = "https://dikostoater.github.io/terminalhackprobot/?ok=error";
+          }
+        });
+      });
+
+    })();
+  </script>
+</body>
+</html>
